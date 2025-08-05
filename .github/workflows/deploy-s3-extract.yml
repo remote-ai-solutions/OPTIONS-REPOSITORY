@@ -1,0 +1,128 @@
+name: Extract OPTIONS Course Platform from S3
+on:
+  workflow_dispatch:
+    inputs:
+      tar_filename:
+        description: 'Tar.gz filename in the CODE folder'
+        required: true
+        default: 'options_course_platform_app_20250805_104744.tar.gz'
+        type: string
+      s3_folder:
+        description: 'S3 folder path'
+        required: true
+        default: 'PLATFORMS/OPTIONS_COURSE/CODE'
+        type: string
+
+permissions:
+  id-token: write   # Required for OIDC
+  contents: write   # Required for git operations
+
+env:
+  S3_BUCKET: 'remote-business'
+
+jobs:
+  extract-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Clean and prepare AWS credentials
+        id: aws-creds
+        run: |
+          # Clean secrets using the same trimming approach that worked
+          AWS_REGION_CLEAN=$(echo "${{ secrets.AWS_REGION }}" | tr -d '\n\r\t ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          AWS_ROLE_ARN_CLEAN=$(echo "${{ secrets.AWS_ROLE_ARN }}" | tr -d '\n\r\t ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          
+          echo "✅ AWS credentials cleaned and ready"
+          echo "aws_region=$AWS_REGION_CLEAN" >> $GITHUB_OUTPUT
+          echo "aws_role_arn=$AWS_ROLE_ARN_CLEAN" >> $GITHUB_OUTPUT
+      
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.aws-creds.outputs.aws_role_arn }}
+          role-session-name: S3Extract-${{ github.repository_owner }}-${{ github.event.repository.name }}-${{ github.run_id }}
+          aws-region: ${{ steps.aws-creds.outputs.aws_region }}
+      
+      - name: Verify AWS authentication
+        run: |
+          echo "🔐 Verifying AWS OIDC authentication..."
+          aws sts get-caller-identity
+          echo "✅ AWS authentication successful!"
+      
+      - name: Download and extract from S3
+        run: |
+          TAR_FILE="${{ inputs.tar_filename }}"
+          S3_FOLDER="${{ inputs.s3_folder }}"
+          S3_PATH="s3://${S3_BUCKET}/${S3_FOLDER}/${TAR_FILE}"
+          
+          echo "📥 Downloading OPTIONS course platform..."
+          echo "🔗 Source: ${S3_PATH}"
+          echo "📂 Target: ${{ github.repository }}"
+          
+          # Download file from S3
+          aws s3 cp "${S3_PATH}" ./temp.tar.gz
+          
+          # Verify download
+          if [ -f "./temp.tar.gz" ]; then
+            echo "✅ Download successful"
+            echo "📊 File size: $(ls -lh temp.tar.gz | awk '{print $5}')"
+          else
+            echo "❌ Download failed"
+            exit 1
+          fi
+          
+          # Extract contents
+          echo "📦 Extracting ${TAR_FILE}..."
+          tar -xzf temp.tar.gz
+          
+          # Clean up tar file
+          rm temp.tar.gz
+          
+          echo "✅ Extraction completed!"
+          echo "📁 Extracted contents:"
+          find . -maxdepth 2 -name ".*" -prune -o -type f -print | grep -v "^\./.git" | head -20
+      
+      - name: Commit and deploy changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Actions (Secure OIDC)"
+          
+          # Check for changes
+          git add .
+          
+          if ! git diff --staged --quiet; then
+            # Extract build timestamp from filename if present
+            TIMESTAMP=$(echo "${{ inputs.tar_filename }}" | grep -o '[0-9]\{8\}_[0-9]\{6\}' || echo "$(date '+%Y%m%d_%H%M%S')")
+            
+            # Create descriptive commit message
+            COMMIT_MSG="🚀 Deploy OPTIONS Course Platform - Build ${TIMESTAMP}
+
+            📥 Source: s3://${{ env.S3_BUCKET }}/${{ inputs.s3_folder }}/${{ inputs.tar_filename }}
+            🔐 Deployed via: Secure OIDC (no stored AWS credentials)
+            🤖 Automated: GitHub Actions workflow
+            📅 Build: ${TIMESTAMP}"
+            
+            git commit -m "$COMMIT_MSG"
+            git push origin main
+            
+            echo "✅ Successfully deployed OPTIONS Course Platform!"
+            echo "🎯 Build: ${TIMESTAMP}"
+            echo "🔒 Deployed securely via AWS OIDC"
+            echo "📦 No AWS credentials stored in GitHub"
+          else
+            echo "ℹ️ No changes detected - platform may already be up to date"
+          fi
+      
+      - name: Deployment summary
+        run: |
+          echo "📋 DEPLOYMENT SUMMARY"
+          echo "==================="
+          echo "🏢 Organization: remote-ai-solutions"
+          echo "📂 Repository: OPTIONS-REPOSITORY"
+          echo "📥 Source: s3://${{ env.S3_BUCKET }}/${{ inputs.s3_folder }}/${{ inputs.tar_filename }}"
+          echo "🔐 Security: AWS OIDC (no stored credentials)"
+          echo "✅ Status: Deployment completed successfully"
+          echo ""
+          echo "🎉 Your OPTIONS Course Platform is now deployed!"
