@@ -1,0 +1,61 @@
+name: Final OIDC Test (Repo Secrets + Trimming)
+on: workflow_dispatch
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  final-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clean repository secrets
+        id: clean
+        run: |
+          # Trim all whitespace, newlines, and carriage returns
+          AWS_REGION_CLEAN=$(echo "${{ secrets.AWS_REGION }}" | tr -d '\n\r\t ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          AWS_ROLE_ARN_CLEAN=$(echo "${{ secrets.AWS_ROLE_ARN }}" | tr -d '\n\r\t ' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+          
+          echo "🧹 Cleaned AWS_REGION: '$AWS_REGION_CLEAN'"
+          echo "🧹 Cleaned AWS_REGION length: $(echo -n "$AWS_REGION_CLEAN" | wc -c) characters"
+          
+          echo "🧹 Cleaned AWS_ROLE_ARN length: $(echo -n "$AWS_ROLE_ARN_CLEAN" | wc -c) characters"
+          echo "🧹 Cleaned AWS_ROLE_ARN ends with: $(echo -n "$AWS_ROLE_ARN_CLEAN" | tail -c 4)"
+          
+          # Verify expected values
+          if [ "$AWS_REGION_CLEAN" = "us-east-1" ]; then
+            echo "✅ AWS_REGION matches expected value"
+          else
+            echo "❌ AWS_REGION does not match expected: '$AWS_REGION_CLEAN'"
+            exit 1
+          fi
+          
+          if [[ "$AWS_ROLE_ARN_CLEAN" == *"RemoteAISolutions-GitHubActions-OIDC" ]]; then
+            echo "✅ AWS_ROLE_ARN contains expected role name"
+          else
+            echo "❌ AWS_ROLE_ARN does not contain expected role name"
+            exit 1
+          fi
+          
+          # Export for next step
+          echo "aws_region=$AWS_REGION_CLEAN" >> $GITHUB_OUTPUT
+          echo "aws_role_arn=$AWS_ROLE_ARN_CLEAN" >> $GITHUB_OUTPUT
+      
+      - name: Test AWS OIDC with cleaned repository secrets
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ steps.clean.outputs.aws_role_arn }}
+          role-session-name: FinalTest-${{ github.run_id }}
+          aws-region: ${{ steps.clean.outputs.aws_region }}
+      
+      - name: Verify final success
+        run: |
+          echo "🔐 Testing AWS OIDC with cleaned repository secrets..."
+          aws sts get-caller-identity
+          echo ""
+          echo "🎉 FINAL SUCCESS!"
+          echo "✅ Repository secrets work with automatic trimming"
+          echo "✅ OIDC authentication successful"
+          echo "✅ Ready to create your real S3 extraction workflow"
+          echo ""
+          echo "💡 Solution: Use repository secrets with trimming in workflows"
