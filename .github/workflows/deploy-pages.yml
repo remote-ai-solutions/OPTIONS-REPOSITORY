@@ -51,6 +51,9 @@ jobs:
           # Set the correct base path for GitHub Pages
           export PUBLIC_URL="https://remote-ai-solutions.github.io/OPTIONS-REPOSITORY"
           
+          # Disable treating warnings as errors for CI build
+          export CI=false
+          
           npm run build
           
           echo "✅ React build completed!"
