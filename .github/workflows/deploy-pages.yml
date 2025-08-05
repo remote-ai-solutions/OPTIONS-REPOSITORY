@@ -1,0 +1,81 @@
+name: Deploy OPTIONS Platform to GitHub Pages
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+    paths:
+      - 'options_course_platform_app/**'
+
+# Sets permissions of the GITHUB_TOKEN to allow deployment to GitHub Pages
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow only one concurrent deployment
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: 'options_course_platform_app/package-lock.json'
+      
+      - name: Navigate to React app and install dependencies
+        run: |
+          echo "📂 Navigating to options_course_platform_app folder..."
+          cd options_course_platform_app
+          echo "📦 Installing React app dependencies..."
+          npm ci
+        working-directory: ./
+      
+      - name: Build React application
+        run: |
+          echo "🔨 Building OPTIONS course platform for GitHub Pages..."
+          cd options_course_platform_app
+          
+          # Set the correct base path for GitHub Pages
+          export PUBLIC_URL="https://remote-ai-solutions.github.io/OPTIONS-REPOSITORY"
+          
+          npm run build
+          
+          echo "✅ React build completed!"
+          echo "📁 Build contents:"
+          ls -la build/
+        working-directory: ./
+      
+      - name: Setup GitHub Pages
+        uses: actions/configure-pages@v5
+      
+      - name: Upload build artifacts
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './options_course_platform_app/build'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+      
+      - name: Deployment complete
+        run: |
+          echo "🎉 OPTIONS Course Platform deployed to GitHub Pages!"
+          echo "🌐 Your platform is live at:"
+          echo "🔗 https://remote-ai-solutions.github.io/OPTIONS-REPOSITORY"
+          echo ""
+          echo "✅ React app from options_course_platform_app folder"
+          echo "🚀 Fully hosted on GitHub Pages"
+          echo "📱 Accessible globally"
