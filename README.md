@@ -1,4 +1,4 @@
-# 🚀 OPTIONS Course Platform
+# 🚀 Omni-Cloud Options Trading Revolution
 
 ![Platform Status](https://img.shields.io/badge/Status-Live-brightgreen)
 ![Version](https://img.shields.io/badge/Version-1.0.0-blue)
