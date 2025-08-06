@@ -1,11 +1,11 @@
-# 🚀 Options Trading Course
+# 🚀 OPTIONS Course Platform
 
 ![Platform Status](https://img.shields.io/badge/Status-Live-brightgreen)
 ![Version](https://img.shields.io/badge/Version-1.0.0-blue)
 ![React](https://img.shields.io/badge/React-18+-61DAFB?logo=react)
 ![TypeScript](https://img.shields.io/badge/TypeScript-Latest-3178C6?logo=typescript)
 
-**AI-Powered Options Trading Education Platform** - A comprehensive application for learning options trading strategies, market analysis, and risk management.
+**AI-Powered OPTIONS Course Platform** - A comprehensive application for learning options trading strategies, market analysis, and risk management.
 
 ## 🌐 Live Demo
 
